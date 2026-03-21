@@ -25,12 +25,12 @@ Use OpenAI Codex CLI with Alibaba DashScope Coding Plan subscription.
 ## One-Line Install
 
 ```bash
-git clone https://github.com/vicmuchina/codex-dashscope-proxy.git ~/Projects/codex-dashscope-proxy && cp ~/Projects/codex-dashscope-proxy/config.toml ~/.codex/config.toml
+git clone https://github.com/vicmuchina/codex-alibaba-dashscope-proxy.git ~/Projects/codex-alibaba-dashscope-proxy && cp ~/Projects/codex-alibaba-dashscope-proxy/config.toml ~/.codex/config.toml
 ```
 
 Then start the proxy:
 ```bash
-cd ~/Projects/codex-dashscope-proxy && node proxy.cjs &
+cd ~/Projects/codex-alibaba-dashscope-proxy && node proxy.cjs &
 ```
 
 ## Setup
@@ -38,14 +38,14 @@ cd ~/Projects/codex-dashscope-proxy && node proxy.cjs &
 ### 1. Clone this repo
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/codex-dashscope-proxy.git ~/Projects/codex-dashscope-proxy
+git clone https://github.com/vicmuchina/codex-alibaba-dashscope-proxy.git ~/Projects/codex-alibaba-dashscope-proxy
 ```
 
 ### 2. Copy the Codex config
 
 ```bash
 mkdir -p ~/.codex
-cp ~/Projects/codex-dashscope-proxy/config.toml ~/.codex/config.toml
+cp ~/Projects/codex-alibaba-dashscope-proxy/config.toml ~/.codex/config.toml
 ```
 
 ### 3. Add your API key
@@ -60,7 +60,7 @@ api_key = "YOUR_DASHSCOPE_API_KEY"
 ### 4. Start the proxy
 
 ```bash
-cd ~/Projects/codex-dashscope-proxy
+cd ~/Projects/codex-alibaba-dashscope-proxy
 node proxy.cjs
 ```
 
@@ -145,7 +145,7 @@ Make sure to use `-i` flag: `codex -i image.png "prompt"`
 ## Files
 
 ```
-codex-dashscope-proxy/
+codex-alibaba-dashscope-proxy/
 ├── proxy.cjs      # Main proxy server
 ├── config.toml    # Codex config example
 ├── start.sh       # Startup script
