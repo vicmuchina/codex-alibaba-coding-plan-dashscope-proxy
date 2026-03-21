@@ -25,7 +25,7 @@ Use OpenAI Codex CLI with Alibaba DashScope Coding Plan subscription.
 ## One-Line Install
 
 ```bash
-git clone https://github.com/vicmuchina/codex-alibaba-coding-plan-dashscope-proxy.git ~/Projects/codex-alibaba-coding-plan-dashscope-proxy && cp ~/Projects/codex-alibaba-coding-plan-dashscope-proxy/config.toml ~/.codex/config.toml
+git clone https://github.com/vicmuchina/codex-alibaba-coding-plan-dashscope-proxy.git ~/Projects/codex-alibaba-coding-plan-dashscope-proxy && cp ~/Projects/codex-alibaba-coding-plan-dashscope-proxy/config.toml ~/.codex/config.toml && cp ~/Projects/codex-alibaba-coding-plan-dashscope-proxy/models.json ~/.codex/models.json
 ```
 
 Then start the proxy:
@@ -41,11 +41,12 @@ cd ~/Projects/codex-alibaba-coding-plan-dashscope-proxy && node proxy.cjs &
 git clone https://github.com/vicmuchina/codex-alibaba-coding-plan-dashscope-proxy.git ~/Projects/codex-alibaba-coding-plan-dashscope-proxy
 ```
 
-### 2. Copy the Codex config
+### 2. Copy the Codex config and model catalog
 
 ```bash
 mkdir -p ~/.codex
 cp ~/Projects/codex-alibaba-coding-plan-dashscope-proxy/config.toml ~/.codex/config.toml
+cp ~/Projects/codex-alibaba-coding-plan-dashscope-proxy/models.json ~/.codex/models.json
 ```
 
 ### 3. Add your API key
@@ -148,6 +149,7 @@ Make sure to use `-i` flag: `codex -i image.png "prompt"`
 codex-alibaba-coding-plan-dashscope-proxy/
 ├── proxy.cjs      # Main proxy server
 ├── config.toml    # Codex config example
+├── models.json    # Model catalog for DashScope models
 ├── start.sh       # Startup script
 └── README.md      # This file
 ```
