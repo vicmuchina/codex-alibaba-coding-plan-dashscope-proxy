@@ -101,10 +101,11 @@ function convertInputToMessages(input) {
       const toolResults = [];
       while (i < input.length && input[i].type === 'function_call_output') {
         const fco = input[i];
+        const convertedContent = convertToolResultContent(fco.output);
         toolResults.push({
           type: 'tool_result',
           tool_use_id: fco.call_id,
-          content: String(fco.output),
+          content: convertedContent,
         });
         i++;
       }
@@ -160,6 +161,49 @@ function convertContent(content) {
   }
   
   return content;
+}
+
+function convertToolResultContent(output) {
+  if (typeof output === 'string') return output;
+  
+  if (Array.isArray(output)) {
+    const converted = [];
+    for (const item of output) {
+      if (item && item.type === 'input_image' && item.image_url) {
+        if (item.image_url.startsWith('data:')) {
+          const match = item.image_url.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            converted.push({
+              type: 'image',
+              source: { type: 'base64', media_type: match[1], data: match[2] }
+            });
+          }
+        }
+      } else if (item && typeof item === 'object') {
+        converted.push(JSON.stringify(item));
+      } else {
+        converted.push(String(item));
+      }
+    }
+    return converted.length === 1 ? converted[0] : converted;
+  }
+  
+  if (output && typeof output === 'object') {
+    if (output.type === 'input_image' && output.image_url) {
+      if (output.image_url.startsWith('data:')) {
+        const match = output.image_url.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          return {
+            type: 'image',
+            source: { type: 'base64', media_type: match[1], data: match[2] }
+          };
+        }
+      }
+    }
+    return JSON.stringify(output);
+  }
+  
+  return String(output);
 }
 
 function convertTools(tools) {
