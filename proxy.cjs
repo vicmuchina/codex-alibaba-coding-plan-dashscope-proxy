@@ -81,14 +81,7 @@ function convertInputToMessages(input) {
   const messages = [];
   
   for (const item of input) {
-    if (item.type === 'message') {
-      if (item.role === 'system') continue;
-      
-      const content = convertContent(item.content);
-      if (content && (Array.isArray(content) ? content.length > 0 : content)) {
-        messages.push({ role: item.role, content });
-      }
-    } else if (item.type === 'function_call') {
+    if (item.type === 'function_call') {
       messages.push({
         role: 'assistant',
         content: [{
@@ -107,6 +100,12 @@ function convertInputToMessages(input) {
           content: String(item.output),
         }],
       });
+    } else if (item.role) {
+      if (item.role === 'system') continue;
+      const content = convertContent(item.content);
+      if (content && (Array.isArray(content) ? content.length > 0 : content)) {
+        messages.push({ role: item.role, content });
+      }
     }
   }
   
