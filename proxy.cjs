@@ -79,34 +79,49 @@ function handleResponses(res, body) {
 
 function convertInputToMessages(input) {
   const messages = [];
+  let i = 0;
   
-  for (const item of input) {
+  while (i < input.length) {
+    const item = input[i];
+    
     if (item.type === 'function_call') {
-      messages.push({
-        role: 'assistant',
-        content: [{
+      const toolUses = [];
+      while (i < input.length && input[i].type === 'function_call') {
+        const fc = input[i];
+        toolUses.push({
           type: 'tool_use',
-          id: item.id || item.call_id,
-          name: item.name,
-          input: safeParse(item.arguments) || {},
-        }],
-      });
+          id: fc.id || fc.call_id,
+          name: fc.name,
+          input: safeParse(fc.arguments) || {},
+        });
+        i++;
+      }
+      messages.push({ role: 'assistant', content: toolUses });
     } else if (item.type === 'function_call_output') {
-      messages.push({
-        role: 'user',
-        content: [{
+      const toolResults = [];
+      while (i < input.length && input[i].type === 'function_call_output') {
+        const fco = input[i];
+        toolResults.push({
           type: 'tool_result',
-          tool_use_id: item.call_id,
-          content: String(item.output),
-        }],
-      });
+          tool_use_id: fco.call_id,
+          content: String(fco.output),
+        });
+        i++;
+      }
+      messages.push({ role: 'user', content: toolResults });
     } else if (item.role) {
-      if (item.role === 'system') continue;
+      if (item.role === 'system') {
+        i++;
+        continue;
+      }
       const content = convertContent(item.content);
       if (content && (Array.isArray(content) ? content.length > 0 : content)) {
         const role = item.role === 'developer' ? 'user' : item.role;
         messages.push({ role, content });
       }
+      i++;
+    } else {
+      i++;
     }
   }
   
