@@ -6,8 +6,10 @@ Use OpenAI Codex CLI with Alibaba DashScope Coding Plan subscription.
 
 - ✅ Basic chat conversations
 - ✅ Tool calling (shell commands, file operations)
+- ✅ Parallel tool calls
 - ✅ Multi-turn conversations
-- ✅ Image analysis (vision)
+- ✅ Code generation
+- ✅ Image analysis (vision) - both `-i` flag and `view_image` tool
 - ✅ SSE streaming
 - ✅ All DashScope Coding Plan models
 
@@ -91,6 +93,11 @@ codex exec "your prompt"
 codex -i image.png "describe this image"
 ```
 
+Or in interactive mode, ask Codex to view images:
+```
+view the image at /path/to/image.png and describe it
+```
+
 ## Config File
 
 The config file is located at `~/.codex/config.toml`:
@@ -98,6 +105,7 @@ The config file is located at `~/.codex/config.toml`:
 ```toml
 model_provider = "dashscope"
 model = "qwen3.5-plus"
+model_catalog_json = "~/.codex/models.json"
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 web_search = "disabled"
@@ -141,7 +149,9 @@ Ensure `User-Agent: curl/8.5.0` header is sent (handled by proxy).
 
 ### Image not working
 
-Make sure to use `-i` flag: `codex -i image.png "prompt"`
+Both methods work:
+- Use `-i` flag: `codex -i image.png "prompt"`
+- In interactive mode: `view the image at /path/to/image.png`
 
 ## Files
 

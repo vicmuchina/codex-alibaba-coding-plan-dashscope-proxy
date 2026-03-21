@@ -3,6 +3,7 @@
 
 model_provider = "dashscope"
 model = "qwen3.5-plus"
+model_catalog_json = "~/.codex/models.json"
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 web_search = "disabled"
@@ -18,52 +19,3 @@ wire_api = "responses"
 shell_tool = true
 multi_agent = true
 shell_snapshot = true
-
-# ==========================================
-# MCP SERVERS (Optional)
-# ==========================================
-
-[mcp_servers.chrome-devtools]  
-command = "node"  
-args = [  
-    "/home/vic/.local/share/chrome-devtools-mcp/node_modules/chrome-devtools-mcp/build/src/index.js",  
-    "--browserUrl",  
-    "http://127.0.0.1:9333",  
-    "--viewport=1280x720"  
-]  
-enabled = true  
-startup_timeout_sec = 300
-tool_timeout_sec = 300
-  
-[mcp_servers.context7]  
-command = "npx"  
-args = ["-y", "@upstash/context7-mcp"]  
-enabled = true  
-startup_timeout_sec = 150
-tool_timeout_sec = 150
-
-[mcp_servers.context7.env]
-CONTEXT7_API_KEY = "YOUR_CONTEXT7_API_KEY"
-  
-[mcp_servers.deepwiki]  
-command = "python3"  
-args = ["/home/vic/Projects/deepwiki-mcp-bridge/bridge.py"]  
-enabled = true  
-startup_timeout_sec = 150
-tool_timeout_sec = 150
-  
-[mcp_servers.tavily]  
-command = "npx"  
-args = ["-y", "tavily-mcp@latest"]  
-enabled = true  
-startup_timeout_sec = 150
-tool_timeout_sec = 150
-
-[mcp_servers.tavily.env]
-TAVILY_API_KEY = "YOUR_TAVILY_API_KEY"
-
-# ==========================================
-# PROJECT TRUST LEVELS
-# ==========================================
-[projects."/home/vic"]
-trust_level = "trusted"
