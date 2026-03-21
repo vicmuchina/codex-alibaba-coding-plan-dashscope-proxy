@@ -25,7 +25,7 @@ Use OpenAI Codex CLI with Alibaba DashScope Coding Plan subscription.
 ## One-Line Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/codex-dashscope-proxy.git ~/Projects/codex-dashscope-proxy && cp ~/Projects/codex-dashscope-proxy/config.toml ~/.codex/config.toml
+git clone https://github.com/vicmuchina/codex-dashscope-proxy.git ~/Projects/codex-dashscope-proxy && cp ~/Projects/codex-dashscope-proxy/config.toml ~/.codex/config.toml
 ```
 
 Then start the proxy:
