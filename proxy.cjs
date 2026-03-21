@@ -22,10 +22,12 @@ const server = http.createServer((req, res) => {
 
 function handleResponses(res, body) {
   try {
+    console.log('Incoming request body:', body.substring(0, 500));
     const parsed = JSON.parse(body);
     const stream = parsed.stream === true;
     
     const messages = convertInputToMessages(parsed.input || []);
+    console.log('Converted messages:', JSON.stringify(messages, null, 2));
     const tools = convertTools(parsed.tools || []);
     
     const anthropicReq = {
@@ -38,6 +40,7 @@ function handleResponses(res, body) {
     };
     
     console.log('Request - Model:', anthropicReq.model, 'Stream:', stream, 'Tools:', tools.length);
+    console.log('Sending to DashScope:', JSON.stringify(anthropicReq, null, 2));
     
     const req2 = https.request(DASHSCOPE_URL, {
       method: 'POST',
@@ -104,7 +107,8 @@ function convertInputToMessages(input) {
       if (item.role === 'system') continue;
       const content = convertContent(item.content);
       if (content && (Array.isArray(content) ? content.length > 0 : content)) {
-        messages.push({ role: item.role, content });
+        const role = item.role === 'developer' ? 'user' : item.role;
+        messages.push({ role, content });
       }
     }
   }
