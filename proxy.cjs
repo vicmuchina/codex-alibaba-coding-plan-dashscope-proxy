@@ -32,7 +32,7 @@ function handleResponses(res, body) {
       model: parsed.model || 'qwen3.5-plus',
       max_tokens: parsed.max_tokens || 4096,
       messages,
-      stream: false,
+      stream: stream,
       system: parsed.instructions || undefined,
       ...(tools.length > 0 && { tools }),
     };
@@ -47,24 +47,32 @@ function handleResponses(res, body) {
         'User-Agent': 'curl/8.5.0',
       },
     }, (res2) => {
-      let data = '';
-      res2.on('data', chunk => data += chunk);
-      res2.on('end', () => {
-        if (res2.statusCode !== 200) {
+      if (res2.statusCode !== 200) {
+        let data = '';
+        res2.on('data', chunk => data += chunk);
+        res2.on('end', () => {
           console.error('Error from DashScope:', data.substring(0, 300));
           res.writeHead(res2.statusCode, {'Content-Type': 'application/json'});
           res.end(data);
-          return;
-        }
-        
-        try {
-          const anthro = JSON.parse(data);
-          sendResponse(res, anthro, stream);
-        } catch (e) {
-          console.error('Parse error:', e);
-          res.writeHead(500); res.end('{"error":"parse"}');
-        }
-      });
+        });
+        return;
+      }
+      
+      if (stream) {
+        handleStreamingResponse(res, res2);
+      } else {
+        let data = '';
+        res2.on('data', chunk => data += chunk);
+        res2.on('end', () => {
+          try {
+            const anthro = JSON.parse(data);
+            sendResponse(res, anthro, false);
+          } catch (e) {
+            console.error('Parse error:', e);
+            res.writeHead(500); res.end('{"error":"parse"}');
+          }
+        });
+      }
     });
     
     req2.on('error', e => { console.error('Error:', e); res.writeHead(500); res.end('{"error":"' + e.message + '"}'); });
@@ -298,6 +306,97 @@ function sendResponse(res, anthro, stream) {
 function sendSSE(res, event, data) {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function handleStreamingResponse(res, res2) {
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+  
+  let buffer = '';
+  let messageId = 'resp_' + Date.now();
+  let itemIndex = 0;
+  let textBlockIndex = -1;
+  
+  res2.on('data', chunk => {
+    buffer += chunk.toString();
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data:')) {
+        const data = line.slice(5).trim();
+        if (data === '[DONE]' || !data) continue;
+        
+        try {
+          const event = JSON.parse(data);
+          
+          if (event.type === 'message_start') {
+            messageId = event.message?.id || messageId;
+            sendSSE(res, 'response.created', {
+              type: 'response.created',
+              response: { id: messageId, object: 'response', status: 'in_progress', model: event.message?.model }
+            });
+          } else if (event.type === 'content_block_start') {
+            const block = event.content_block;
+            if (block?.type === 'text') {
+              textBlockIndex = event.index;
+              const itemId = 'msg_' + Date.now();
+              sendSSE(res, 'response.output_item.added', {
+                type: 'response.output_item.added', output_index: itemIndex,
+                item: { type: 'message', id: itemId, role: 'assistant', status: 'in_progress' }
+              });
+            } else if (block?.type === 'tool_use') {
+              sendSSE(res, 'response.output_item.added', {
+                type: 'response.output_item.added', output_index: itemIndex,
+                item: { type: 'function_call', id: block.id, call_id: block.id, name: block.name, status: 'in_progress' }
+              });
+            }
+          } else if (event.type === 'content_block_delta') {
+            const delta = event.delta;
+            if (delta?.type === 'text_delta' && delta.text) {
+              sendSSE(res, 'response.output_text.delta', {
+                type: 'response.output_text.delta', output_index: itemIndex, content_index: 0,
+                delta: delta.text
+              });
+            } else if (delta?.type === 'input_json_delta' && delta.partial_json) {
+              // Tool input streaming
+            }
+          } else if (event.type === 'content_block_stop') {
+            if (event.index === textBlockIndex) {
+              sendSSE(res, 'response.output_item.done', {
+                type: 'response.output_item.done', output_index: itemIndex,
+                item: { type: 'message', id: 'msg_' + Date.now(), role: 'assistant', status: 'completed' }
+              });
+            }
+            itemIndex++;
+          } else if (event.type === 'message_delta') {
+            const usage = event.usage || {};
+            if (usage.output_tokens) {
+              sendSSE(res, 'response.usage', {
+                type: 'response.usage',
+                usage: { output_tokens: usage.output_tokens }
+              });
+            }
+          } else if (event.type === 'message_stop') {
+            sendSSE(res, 'response.completed', {
+              type: 'response.completed',
+              response: { id: messageId, object: 'response', status: 'completed' }
+            });
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+  });
+  
+  res2.on('end', () => {
+    res.end();
+  });
+  
+  res2.on('error', (e) => {
+    console.error('DashScope stream error:', e.message);
+    res.end();
+  });
 }
 
 function buildOutput(anthro) {
