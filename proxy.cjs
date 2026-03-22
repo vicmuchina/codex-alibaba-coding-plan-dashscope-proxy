@@ -8,7 +8,6 @@ const PORT = process.env.PROXY_PORT || 8765;
 const DASHSCOPE_URL = 'https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1/messages';
 
 const server = http.createServer((req, res) => {
-  console.log('=== REQUEST ===', req.method, req.url, 'from', req.socket.remoteAddress);
   const url = req.url;
   let body = '';
   
@@ -23,11 +22,8 @@ const server = http.createServer((req, res) => {
 
 function handleResponses(res, body) {
   try {
-    console.log('REQUEST BODY:', body.substring(0, 500));
     const parsed = JSON.parse(body);
     const stream = parsed.stream === true;
-    
-    console.log('Stream requested:', stream, 'Model:', parsed.model, 'Tools:', (parsed.tools || []).length);
     
     const messages = convertInputToMessages(parsed.input || []);
     const tools = convertTools(parsed.tools || []);
@@ -396,21 +392,19 @@ function handleStreamingResponse(res, res2) {
               });
             }
           } else if (event.type === 'message_stop') {
-            console.log('MESSAGE_STOP - sending response.completed');
             sendSSE(res, 'response.completed', {
               type: 'response.completed',
               response: { id: messageId, object: 'response', status: 'completed' }
             });
           }
         } catch (e) {
-          console.error('Parse error:', e.message);
+          // Ignore parse errors
         }
       }
     }
   });
   
   res2.on('end', () => {
-    console.log('DashScope stream ended');
     res.end();
   });
   
