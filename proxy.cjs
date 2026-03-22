@@ -8,6 +8,7 @@ const PORT = process.env.PROXY_PORT || 8765;
 const DASHSCOPE_URL = 'https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1/messages';
 
 const server = http.createServer((req, res) => {
+  console.log('=== REQUEST ===', req.method, req.url, 'from', req.socket.remoteAddress);
   const url = req.url;
   let body = '';
   
@@ -22,8 +23,11 @@ const server = http.createServer((req, res) => {
 
 function handleResponses(res, body) {
   try {
+    console.log('REQUEST BODY:', body.substring(0, 500));
     const parsed = JSON.parse(body);
     const stream = parsed.stream === true;
+    
+    console.log('Stream requested:', stream, 'Model:', parsed.model, 'Tools:', (parsed.tools || []).length);
     
     const messages = convertInputToMessages(parsed.input || []);
     const tools = convertTools(parsed.tools || []);
@@ -316,6 +320,8 @@ function handleStreamingResponse(res, res2) {
   let itemIndex = 0;
   let currentBlockType = null;
   let currentBlockIndex = -1;
+  let currentMessageId = null;
+  let currentTextContent = '';
   
   res2.on('data', chunk => {
     buffer += chunk.toString();
@@ -342,25 +348,24 @@ function handleStreamingResponse(res, res2) {
             currentBlockIndex = event.index;
             
             if (block?.type === 'text') {
-              const itemId = 'msg_' + Date.now();
+              currentMessageId = 'msg_' + Date.now();
+              currentTextContent = '';
               sendSSE(res, 'response.output_item.added', {
                 type: 'response.output_item.added',
-                output_index: itemIndex,
-                item: { type: 'message', id: itemId, role: 'assistant', status: 'in_progress', content: [] }
+                item: { type: 'message', id: currentMessageId, role: 'assistant', status: 'in_progress', content: [] }
               });
             } else if (block?.type === 'tool_use') {
               sendSSE(res, 'response.output_item.added', {
                 type: 'response.output_item.added',
-                output_index: itemIndex,
                 item: { type: 'function_call', id: block.id, call_id: block.id, name: block.name, status: 'in_progress' }
               });
             }
           } else if (event.type === 'content_block_delta') {
             const delta = event.delta;
             if (delta?.type === 'text_delta' && delta.text && currentBlockType === 'text') {
+              currentTextContent += delta.text;
               sendSSE(res, 'response.output_text.delta', {
                 type: 'response.output_text.delta',
-                output_index: itemIndex,
                 delta: delta.text
               });
             }
@@ -368,14 +373,20 @@ function handleStreamingResponse(res, res2) {
             if (currentBlockType === 'text') {
               sendSSE(res, 'response.output_item.done', {
                 type: 'response.output_item.done',
-                output_index: itemIndex,
-                item: { type: 'message', id: 'msg_' + Date.now(), role: 'assistant', status: 'completed' }
+                item: { 
+                  type: 'message', 
+                  id: currentMessageId, 
+                  role: 'assistant', 
+                  status: 'completed',
+                  content: [{ type: 'output_text', text: currentTextContent }]
+                }
               });
               itemIndex++;
             } else if (currentBlockType === 'tool_use') {
               itemIndex++;
             }
             currentBlockType = null;
+            currentTextContent = '';
           } else if (event.type === 'message_delta') {
             const usage = event.usage || {};
             if (usage.output_tokens) {
@@ -385,19 +396,21 @@ function handleStreamingResponse(res, res2) {
               });
             }
           } else if (event.type === 'message_stop') {
+            console.log('MESSAGE_STOP - sending response.completed');
             sendSSE(res, 'response.completed', {
               type: 'response.completed',
               response: { id: messageId, object: 'response', status: 'completed' }
             });
           }
         } catch (e) {
-          // Ignore parse errors
+          console.error('Parse error:', e.message);
         }
       }
     }
   });
   
   res2.on('end', () => {
+    console.log('DashScope stream ended');
     res.end();
   });
   
