@@ -314,7 +314,8 @@ function handleStreamingResponse(res, res2) {
   let buffer = '';
   let messageId = 'resp_' + Date.now();
   let itemIndex = 0;
-  let textBlockIndex = -1;
+  let currentBlockType = null;
+  let currentBlockIndex = -1;
   
   res2.on('data', chunk => {
     buffer += chunk.toString();
@@ -337,37 +338,44 @@ function handleStreamingResponse(res, res2) {
             });
           } else if (event.type === 'content_block_start') {
             const block = event.content_block;
+            currentBlockType = block?.type;
+            currentBlockIndex = event.index;
+            
             if (block?.type === 'text') {
-              textBlockIndex = event.index;
               const itemId = 'msg_' + Date.now();
               sendSSE(res, 'response.output_item.added', {
-                type: 'response.output_item.added', output_index: itemIndex,
-                item: { type: 'message', id: itemId, role: 'assistant', status: 'in_progress' }
+                type: 'response.output_item.added',
+                output_index: itemIndex,
+                item: { type: 'message', id: itemId, role: 'assistant', status: 'in_progress', content: [] }
               });
             } else if (block?.type === 'tool_use') {
               sendSSE(res, 'response.output_item.added', {
-                type: 'response.output_item.added', output_index: itemIndex,
+                type: 'response.output_item.added',
+                output_index: itemIndex,
                 item: { type: 'function_call', id: block.id, call_id: block.id, name: block.name, status: 'in_progress' }
               });
             }
           } else if (event.type === 'content_block_delta') {
             const delta = event.delta;
-            if (delta?.type === 'text_delta' && delta.text) {
+            if (delta?.type === 'text_delta' && delta.text && currentBlockType === 'text') {
               sendSSE(res, 'response.output_text.delta', {
-                type: 'response.output_text.delta', output_index: itemIndex, content_index: 0,
+                type: 'response.output_text.delta',
+                output_index: itemIndex,
                 delta: delta.text
               });
-            } else if (delta?.type === 'input_json_delta' && delta.partial_json) {
-              // Tool input streaming
             }
           } else if (event.type === 'content_block_stop') {
-            if (event.index === textBlockIndex) {
+            if (currentBlockType === 'text') {
               sendSSE(res, 'response.output_item.done', {
-                type: 'response.output_item.done', output_index: itemIndex,
+                type: 'response.output_item.done',
+                output_index: itemIndex,
                 item: { type: 'message', id: 'msg_' + Date.now(), role: 'assistant', status: 'completed' }
               });
+              itemIndex++;
+            } else if (currentBlockType === 'tool_use') {
+              itemIndex++;
             }
-            itemIndex++;
+            currentBlockType = null;
           } else if (event.type === 'message_delta') {
             const usage = event.usage || {};
             if (usage.output_tokens) {
