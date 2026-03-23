@@ -379,6 +379,28 @@ Images work via:
 
 Ensure you're using a model that supports vision (all listed models do).
 
+### Planning Mode / `request_user_input` Tool
+
+**Known Limitation:** Planning mode and the `request_user_input` tool (used for interactive questions) are **partially supported**. 
+
+DashScope's models (qwen3.5-plus, etc.) are not natively trained on Codex CLI's special tools. When the model attempts to use `request_user_input`, it may output XML-like text instead of proper interactive UI elements.
+
+**Workarounds:**
+- Use **default mode** instead of planning mode (press `Tab` to switch modes)
+- Avoid prompts that ask the model to "ask clarifying questions"
+- If the model outputs XML-like `<request_user_input>` tags, respond with your choice in natural language
+
+**Example:**
+```
+› Plan a refactoring of my codebase
+  (model may output XML text instead of interactive questions)
+
+› Just proceed with option 1
+  (respond naturally to continue)
+```
+
+This limitation exists because `request_user_input` is a Codex CLI-specific tool that OpenAI's models are trained on, but third-party models are not.
+
 ## Development
 
 ### Running the Proxy in Debug Mode
