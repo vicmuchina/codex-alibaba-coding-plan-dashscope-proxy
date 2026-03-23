@@ -96,6 +96,7 @@ function handleStreamingResponse(res, res2) {
   let currentMessageId = null;
   let currentTextContent = '';
   let receivedEvents = false;
+  let currentToolUse = null;
   
   res2.on('data', chunk => {
     buffer += chunk.toString();
@@ -138,6 +139,7 @@ function handleStreamingResponse(res, res2) {
                 item: { type: 'message', id: currentMessageId, role: 'assistant', status: 'in_progress', content: [] }
               });
             } else if (block?.type === 'tool_use') {
+              currentToolUse = { id: block.id, name: block.name, arguments: '' };
               sendSSE(res, 'response.output_item.added', {
                 type: 'response.output_item.added',
                 item: { type: 'function_call', id: block.id, call_id: block.id, name: block.name, status: 'in_progress' }
@@ -151,6 +153,8 @@ function handleStreamingResponse(res, res2) {
                 type: 'response.output_text.delta',
                 delta: delta.text
               });
+            } else if (delta?.type === 'input_json_delta' && delta.partial_json && currentToolUse) {
+              currentToolUse.arguments += delta.partial_json;
             }
           } else if (eventType === 'content_block_stop') {
             if (currentBlockType === 'text') {
@@ -165,7 +169,19 @@ function handleStreamingResponse(res, res2) {
                 }
               });
               itemIndex++;
-            } else if (currentBlockType === 'tool_use') {
+            } else if (currentBlockType === 'tool_use' && currentToolUse) {
+              sendSSE(res, 'response.output_item.done', {
+                type: 'response.output_item.done',
+                item: { 
+                  type: 'function_call', 
+                  id: currentToolUse.id, 
+                  call_id: currentToolUse.id, 
+                  name: currentToolUse.name, 
+                  arguments: currentToolUse.arguments,
+                  status: 'completed' 
+                }
+              });
+              currentToolUse = null;
               itemIndex++;
             }
             currentBlockType = null;
