@@ -32,7 +32,7 @@ function handleResponses(res, body) {
       model: parsed.model || 'qwen3.5-plus',
       max_tokens: parsed.max_tokens || 4096,
       messages,
-      stream: stream,
+      stream: false,
       system: parsed.instructions || undefined,
       ...(tools.length > 0 && { tools }),
     };
@@ -47,32 +47,24 @@ function handleResponses(res, body) {
         'User-Agent': 'curl/8.5.0',
       },
     }, (res2) => {
-      if (res2.statusCode !== 200) {
-        let data = '';
-        res2.on('data', chunk => data += chunk);
-        res2.on('end', () => {
+      let data = '';
+      res2.on('data', chunk => data += chunk);
+      res2.on('end', () => {
+        if (res2.statusCode !== 200) {
           console.error('Error from DashScope:', data.substring(0, 300));
           res.writeHead(res2.statusCode, {'Content-Type': 'application/json'});
           res.end(data);
-        });
-        return;
-      }
-      
-      if (stream) {
-        handleStreamingResponse(res, res2);
-      } else {
-        let data = '';
-        res2.on('data', chunk => data += chunk);
-        res2.on('end', () => {
-          try {
-            const anthro = JSON.parse(data);
-            sendResponse(res, anthro, false);
-          } catch (e) {
-            console.error('Parse error:', e);
-            res.writeHead(500); res.end('{"error":"parse"}');
-          }
-        });
-      }
+          return;
+        }
+        
+        try {
+          const anthro = JSON.parse(data);
+          sendResponse(res, anthro, stream);
+        } catch (e) {
+          console.error('Parse error:', e);
+          res.writeHead(500); res.end('{"error":"parse"}');
+        }
+      });
     });
     
     req2.on('error', e => { console.error('Error:', e); res.writeHead(500); res.end('{"error":"' + e.message + '"}'); });
@@ -129,46 +121,22 @@ function convertInputToMessages(input) {
         messages.push({ role, content });
       }
       i++;
+    } else if (item.type === 'message') {
+      if (item.role === 'system') {
+        i++;
+        continue;
+      }
+      const content = convertContent(item.content);
+      if (content && (Array.isArray(content) ? content.length > 0 : content)) {
+        messages.push({ role: item.role, content });
+      }
+      i++;
     } else {
       i++;
     }
   }
   
   return messages;
-}
-
-function convertContent(content) {
-  if (typeof content === 'string') return content;
-  
-  if (Array.isArray(content)) {
-    const converted = [];
-    
-    for (const part of content) {
-      if (part.type === 'input_text' && part.text) {
-        converted.push({ type: 'text', text: part.text });
-      } else if (part.type === 'text' && part.text) {
-        converted.push({ type: 'text', text: part.text });
-      } else if (part.type === 'input_image') {
-        if (part.image_url) {
-          if (part.image_url.startsWith('data:')) {
-            const match = part.image_url.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              converted.push({
-                type: 'image',
-                source: { type: 'base64', media_type: match[1], data: match[2] }
-              });
-            }
-          } else {
-            converted.push({ type: 'image', source: { type: 'url', url: part.image_url } });
-          }
-        }
-      }
-    }
-    
-    return converted.length > 0 ? converted : null;
-  }
-  
-  return content;
 }
 
 function convertToolResultContent(output) {
@@ -212,6 +180,40 @@ function convertToolResultContent(output) {
   }
   
   return String(output);
+}
+
+function convertContent(content) {
+  if (typeof content === 'string') return content;
+  
+  if (Array.isArray(content)) {
+    const converted = [];
+    
+    for (const part of content) {
+      if (part.type === 'input_text' && part.text) {
+        converted.push({ type: 'text', text: part.text });
+      } else if (part.type === 'text' && part.text) {
+        converted.push({ type: 'text', text: part.text });
+      } else if (part.type === 'input_image') {
+        if (part.image_url) {
+          if (part.image_url.startsWith('data:')) {
+            const match = part.image_url.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              converted.push({
+                type: 'image',
+                source: { type: 'base64', media_type: match[1], data: match[2] }
+              });
+            }
+          } else {
+            converted.push({ type: 'image', source: { type: 'url', url: part.image_url } });
+          }
+        }
+      }
+    }
+    
+    return converted.length > 0 ? converted : null;
+  }
+  
+  return content;
 }
 
 function convertTools(tools) {
@@ -306,112 +308,6 @@ function sendResponse(res, anthro, stream) {
 function sendSSE(res, event, data) {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
-}
-
-function handleStreamingResponse(res, res2) {
-  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
-  
-  let buffer = '';
-  let messageId = 'resp_' + Date.now();
-  let itemIndex = 0;
-  let currentBlockType = null;
-  let currentBlockIndex = -1;
-  let currentMessageId = null;
-  let currentTextContent = '';
-  
-  res2.on('data', chunk => {
-    buffer += chunk.toString();
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    
-    for (const line of lines) {
-      if (line.startsWith('data:')) {
-        const data = line.slice(5).trim();
-        if (data === '[DONE]' || !data) continue;
-        
-        try {
-          const event = JSON.parse(data);
-          
-          if (event.type === 'message_start') {
-            messageId = event.message?.id || messageId;
-            sendSSE(res, 'response.created', {
-              type: 'response.created',
-              response: { id: messageId, object: 'response', status: 'in_progress', model: event.message?.model }
-            });
-          } else if (event.type === 'content_block_start') {
-            const block = event.content_block;
-            currentBlockType = block?.type;
-            currentBlockIndex = event.index;
-            
-            if (block?.type === 'text') {
-              currentMessageId = 'msg_' + Date.now();
-              currentTextContent = '';
-              sendSSE(res, 'response.output_item.added', {
-                type: 'response.output_item.added',
-                item: { type: 'message', id: currentMessageId, role: 'assistant', status: 'in_progress', content: [] }
-              });
-            } else if (block?.type === 'tool_use') {
-              sendSSE(res, 'response.output_item.added', {
-                type: 'response.output_item.added',
-                item: { type: 'function_call', id: block.id, call_id: block.id, name: block.name, status: 'in_progress' }
-              });
-            }
-          } else if (event.type === 'content_block_delta') {
-            const delta = event.delta;
-            if (delta?.type === 'text_delta' && delta.text && currentBlockType === 'text') {
-              currentTextContent += delta.text;
-              sendSSE(res, 'response.output_text.delta', {
-                type: 'response.output_text.delta',
-                delta: delta.text
-              });
-            }
-          } else if (event.type === 'content_block_stop') {
-            if (currentBlockType === 'text') {
-              sendSSE(res, 'response.output_item.done', {
-                type: 'response.output_item.done',
-                item: { 
-                  type: 'message', 
-                  id: currentMessageId, 
-                  role: 'assistant', 
-                  status: 'completed',
-                  content: [{ type: 'output_text', text: currentTextContent }]
-                }
-              });
-              itemIndex++;
-            } else if (currentBlockType === 'tool_use') {
-              itemIndex++;
-            }
-            currentBlockType = null;
-            currentTextContent = '';
-          } else if (event.type === 'message_delta') {
-            const usage = event.usage || {};
-            if (usage.output_tokens) {
-              sendSSE(res, 'response.usage', {
-                type: 'response.usage',
-                usage: { output_tokens: usage.output_tokens }
-              });
-            }
-          } else if (event.type === 'message_stop') {
-            sendSSE(res, 'response.completed', {
-              type: 'response.completed',
-              response: { id: messageId, object: 'response', status: 'completed' }
-            });
-          }
-        } catch (e) {
-          // Ignore parse errors
-        }
-      }
-    }
-  });
-  
-  res2.on('end', () => {
-    res.end();
-  });
-  
-  res2.on('error', (e) => {
-    console.error('DashScope stream error:', e.message);
-    res.end();
-  });
 }
 
 function buildOutput(anthro) {
