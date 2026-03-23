@@ -19,6 +19,7 @@ wire_api = "responses"
 shell_tool = true
 multi_agent = true
 shell_snapshot = true
+request_user_input = true  # Enable interactive questions in planning mode
 
 # ==========================================
 # MCP SERVERS (Optional but Recommended)

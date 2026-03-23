@@ -30,6 +30,7 @@ This proxy enables you to use OpenAI's Codex CLI (an AI coding assistant) with A
 - ✅ **Multi-turn conversations** - Contextual dialogue
 - ✅ **Code generation** - Write and edit code
 - ✅ **Image analysis** - Vision support via `-i` flag and `view_image` tool
+- ✅ **Planning mode** - Interactive planning with questions (`request_user_input`)
 - ✅ **All DashScope Coding Plan models** - qwen3.5-plus, qwen3-coder-plus, glm-5, glm-4.7, kimi-k2.5, MiniMax-M2.5
 
 ## Quick Start (One-Line Install)
@@ -381,25 +382,28 @@ Ensure you're using a model that supports vision (all listed models do).
 
 ### Planning Mode / `request_user_input` Tool
 
-**Known Limitation:** Planning mode and the `request_user_input` tool (used for interactive questions) are **partially supported**. 
+The `request_user_input` tool enables interactive questions in planning mode. This feature is **enabled by default** in the provided config.
 
-DashScope's models (qwen3.5-plus, etc.) are not natively trained on Codex CLI's special tools. When the model attempts to use `request_user_input`, it may output XML-like text instead of proper interactive UI elements.
+**To enable (if disabled):**
 
-**Workarounds:**
-- Use **default mode** instead of planning mode (press `Tab` to switch modes)
-- Avoid prompts that ask the model to "ask clarifying questions"
-- If the model outputs XML-like `<request_user_input>` tags, respond with your choice in natural language
-
-**Example:**
-```
-› Plan a refactoring of my codebase
-  (model may output XML text instead of interactive questions)
-
-› Just proceed with option 1
-  (respond naturally to continue)
+Add to your `~/.codex/config.toml`:
+```toml
+[features]
+shell_tool = true
+multi_agent = true
+shell_snapshot = true
+request_user_input = true  # Enable interactive questions
 ```
 
-This limitation exists because `request_user_input` is a Codex CLI-specific tool that OpenAI's models are trained on, but third-party models are not.
+**Usage:**
+```bash
+# Switch to planning mode (press Tab to cycle modes)
+codex
+# Then ask: "plan a refactoring of this codebase"
+# The model will ask clarifying questions with multiple-choice options
+```
+
+**Note:** This tool is only available in **planning mode** (not default mode). Press `Tab` to switch modes in the TUI.
 
 ## Development
 
