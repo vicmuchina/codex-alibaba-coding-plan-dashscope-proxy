@@ -11,7 +11,7 @@ web_search = "disabled"
 [model_providers.dashscope]
 name = "DashScope Coding Plan (Anthropic)"
 base_url = "http://localhost:8765/v1"
-api_key = "YOUR_DASHSCOPE_API_KEY"
+api_key = "YOUR_DASHSCOPE_API_KEY_HERE"
 requires_openai_auth = false
 wire_api = "responses"
 
@@ -19,3 +19,48 @@ wire_api = "responses"
 shell_tool = true
 multi_agent = true
 shell_snapshot = true
+
+# ==========================================
+# MCP SERVERS (Optional but Recommended)
+# ==========================================
+# MCP servers extend Codex with additional capabilities
+# Each server provides tools that the AI can use
+
+[mcp_servers.tavily]
+command = "npx"
+args = ["-y", "tavily-mcp@latest"]
+enabled = false  # Set to true after adding API key below
+startup_timeout_sec = 150
+tool_timeout_sec = 150
+
+[mcp_servers.tavily.env]
+TAVILY_API_KEY = "YOUR_TAVILY_API_KEY_HERE"  # Get from https://tavily.com
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+enabled = false  # Set to true after adding API key below
+startup_timeout_sec = 150
+tool_timeout_sec = 150
+
+[mcp_servers.context7.env]
+CONTEXT7_API_KEY = "YOUR_CONTEXT7_API_KEY_HERE"  # Get from https://context7.com
+
+# [mcp_servers.chrome-devtools]
+# command = "node"
+# args = [
+#     "/path/to/chrome-devtools-mcp/build/src/index.js",
+#     "--browserUrl",
+#     "http://127.0.0.1:9333",
+#     "--viewport=1280x720"
+# ]
+# enabled = false
+# startup_timeout_sec = 300
+# tool_timeout_sec = 300
+
+# ==========================================
+# PROJECT TRUST LEVELS
+# ==========================================
+# Mark projects as trusted to skip approval prompts
+# [projects."/home/your-username"]
+# trust_level = "trusted"

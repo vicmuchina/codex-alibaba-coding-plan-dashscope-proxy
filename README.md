@@ -201,12 +201,17 @@ The heart of this project. It runs an HTTP server on port 8765 that:
 
 ### config.toml
 
-Codex CLI configuration file. Key settings:
+Codex CLI configuration file with:
+- **Core settings**: `model_provider`, `api_key`, `base_url`
+- **Features**: Enable shell commands (`shell_tool = true`)
+- **MCP Servers**: Optional extensions (tavily, context7, chrome-devtools)
+- **Security**: Project trust levels for automatic approvals
+
+Key settings:
 - `model_provider = "dashscope"` - Use DashScope instead of OpenAI
 - `base_url = "http://localhost:8765/v1"` - Point to this proxy
 - `api_key = "..."` - Your DashScope API key
 - `wire_api = "responses"` - Use Responses API format
-- Various MCP server configurations (optional)
 
 ### models.json
 
@@ -238,23 +243,89 @@ shell_tool = true                               # Enable shell commands
 multi_agent = true
 shell_snapshot = true
 
-# Optional: MCP Servers (for extended capabilities)
-[mcp_servers.example]
-command = "node"
-args = ["/path/to/server.js"]
-enabled = false
+# ==========================================
+# MCP SERVERS (Optional)
+# ==========================================
+# Uncomment and configure MCP servers to extend Codex capabilities
+# 
+# [mcp_servers.tavily]
+# command = "npx"
+# args = ["-y", "tavily-mcp@latest"]
+# enabled = true
+# [mcp_servers.tavily.env]
+# TAVILY_API_KEY = "your-key-here"
+# 
+# [mcp_servers.context7]
+# command = "npx"  
+# args = ["-y", "@upstash/context7-mcp"]
+# enabled = true
+# [mcp_servers.context7.env]
+# CONTEXT7_API_KEY = "your-key-here"
 ```
 
-### Supported Models
+## MCP Servers (Optional)
 
-| Model | Description | Best For |
-|-------|-------------|----------|
-| `qwen3.5-plus` | Best overall | General use (default) |
-| `qwen3-coder-plus` | Code optimized | Programming tasks |
-| `glm-5` | GLM model | Chinese language |
-| `glm-4.7` | GLM model | Chinese language |
-| `kimi-k2.5` | Moonshot model | Long context |
-| `MiniMax-M2.5` | MiniMax model | General use |
+MCP (Model Context Protocol) servers extend Codex with additional tools and capabilities. The config includes examples for popular MCP servers:
+
+### Tavily MCP - Web Search
+
+Enables AI to search the web for up-to-date information.
+
+**Setup:**
+1. Get API key: https://tavily.com
+2. Uncomment `[mcp_servers.tavily]` section in config.toml
+3. Add your API key
+4. Set `enabled = true`
+
+**Usage:**
+```
+› search for latest TypeScript features
+```
+
+### Context7 MCP - Documentation Search
+
+Search documentation from popular libraries and frameworks.
+
+**Setup:**
+1. Get API key: https://context7.com
+2. Uncomment `[mcp_servers.context7]` section in config.toml
+3. Add your API key
+4. Set `enabled = true`
+
+**Usage:**
+```
+› look up React useEffect documentation
+```
+
+### Chrome DevTools MCP - Browser Automation
+
+Control Chrome browser for testing and automation (requires Chrome running with remote debugging).
+
+**Setup:**
+1. Install: `npm install -g chrome-devtools-mcp`
+2. Start Chrome with: `google-chrome --remote-debugging-port=9333`
+3. Uncomment `[mcp_servers.chrome-devtools]` section
+4. Update path to your chrome-devtools-mcp installation
+5. Set `enabled = true`
+
+**Usage:**
+```
+› take a screenshot of the current page
+› navigate to example.com
+```
+
+### Other MCP Servers
+
+You can add any MCP server:
+
+```toml
+[mcp_servers.server-name]
+command = "npx"
+args = ["-y", "mcp-server-package"]
+enabled = true
+```
+
+Find more MCP servers at: https://github.com/modelcontextprotocol/servers
 
 ## Troubleshooting
 
